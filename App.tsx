@@ -54,6 +54,14 @@ const categories: Category[] = [
 ];
 
 const durationOptions: Duration[] = ['1 hour', '2 hours', 'Half day', 'Full day'];
+const weatherRefreshMinutes = 15;
+const weatherRefreshMs = weatherRefreshMinutes * 60 * 1000;
+
+const priceFilters = [
+  { label: 'Any', value: Infinity },
+  { label: '₹1000', value: 1000 },
+  { label: '₹1500', value: 1500 },
+] as const;
 
 const activities: Activity[] = [
   {
@@ -120,7 +128,7 @@ export default function App() {
   const [stage, setStage] = useState<Stage>('splash');
   const [selectedDuration, setSelectedDuration] = useState<Duration>('2 hours');
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
-  const [priceFilter, setPriceFilter] = useState<'Any' | '₹1000' | '₹1500'>('Any');
+  const [priceFilter, setPriceFilter] = useState<(typeof priceFilters)[number]['label']>('Any');
   const [tab, setTab] = useState<'Home' | 'Explore' | 'Bookings'>('Home');
   const [weatherIndex, setWeatherIndex] = useState(0);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
@@ -137,12 +145,13 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       setWeatherIndex((current) => (current + 1) % weatherStates.length);
-    }, 15 * 60 * 1000);
+    }, weatherRefreshMs);
     return () => clearInterval(interval);
   }, []);
 
   const filteredActivities = useMemo(() => {
-    const maxPrice = priceFilter === 'Any' ? Infinity : Number(priceFilter.replace('₹', ''));
+    const selectedPriceFilter = priceFilters.find((filter) => filter.label === priceFilter);
+    const maxPrice = selectedPriceFilter?.value ?? Infinity;
     return activities
       .filter((item) => tab === 'Explore' || item.duration === selectedDuration)
       .filter((item) => selectedCategory === 'All' || item.category === selectedCategory)
@@ -162,7 +171,7 @@ export default function App() {
       return;
     }
 
-    const totalPrice = selectedActivity.price * peopleCount;
+    const totalPrice = Math.round(selectedActivity.price * peopleCount);
     setBookings((current) => [
       {
         id: `${Date.now()}`,
@@ -243,7 +252,9 @@ export default function App() {
       <View style={styles.weatherBar}>
         <Text style={styles.weatherTitle}>{tab === 'Explore' ? 'Weather in Goa' : 'Live Rain Status'}</Text>
         <Text style={styles.weatherText}>{weatherStates[weatherIndex]}</Text>
-        <Text style={styles.weatherMeta}>Humidity 91% · 26°C · Auto refresh every 15 min</Text>
+        <Text style={styles.weatherMeta}>
+          Humidity 91% · 26°C · Auto refresh every {weatherRefreshMinutes} min
+        </Text>
       </View>
 
       <View style={styles.tabRow}>
@@ -275,13 +286,13 @@ export default function App() {
           </ScrollView>
 
           <View style={styles.filterRow}>
-            {(['Any', '₹1000', '₹1500'] as const).map((price) => (
+            {priceFilters.map((priceFilterOption) => (
               <Pressable
-                key={price}
-                style={[styles.filterButton, priceFilter === price && styles.filterButtonActive]}
-                onPress={() => setPriceFilter(price)}
+                key={priceFilterOption.label}
+                style={[styles.filterButton, priceFilter === priceFilterOption.label && styles.filterButtonActive]}
+                onPress={() => setPriceFilter(priceFilterOption.label)}
               >
-                <Text style={styles.filterText}>Price {price}</Text>
+                <Text style={styles.filterText}>Price {priceFilterOption.label}</Text>
               </Pressable>
             ))}
           </View>
