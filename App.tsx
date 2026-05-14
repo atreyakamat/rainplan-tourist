@@ -146,10 +146,11 @@ export default function App() {
 
   const filteredActivities = useMemo(() => {
     const maxPrice = priceFilter === 'Any' ? Infinity : Number(priceFilter.replace('₹', ''));
-    return [...activities]
+    return activities
       .filter((item) => tab === 'Explore' || item.duration === selectedDuration)
       .filter((item) => selectedCategory === 'All' || item.category === selectedCategory)
       .filter((item) => item.price <= maxPrice)
+      .slice()
       .sort((a, b) => a.distanceKm - b.distanceKm || b.rating - a.rating);
   }, [priceFilter, selectedCategory, selectedDuration, tab]);
 
@@ -384,9 +385,10 @@ export default function App() {
             </Pressable>
             {bookingStep < 3 ? (
               <Pressable
-                style={styles.primaryButton}
+                style={[styles.primaryButton, bookingStep === 1 && !selectedSlot && styles.primaryButtonDisabled]}
                 onPress={() => setBookingStep((step) => (step + 1) as 1 | 2 | 3)}
                 disabled={bookingStep === 1 && !selectedSlot}
+                accessibilityState={{ disabled: bookingStep === 1 && !selectedSlot }}
               >
                 <Text style={styles.primaryButtonText}>Continue</Text>
               </Pressable>
@@ -421,6 +423,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   primaryButtonText: { color: '#fff', fontWeight: '600' },
+  primaryButtonDisabled: { opacity: 0.5 },
   secondaryButton: {
     backgroundColor: '#fff',
     borderRadius: 12,
