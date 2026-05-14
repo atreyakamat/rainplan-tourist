@@ -122,7 +122,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
   const [priceFilter, setPriceFilter] = useState<'Any' | '₹1000' | '₹1500'>('Any');
   const [tab, setTab] = useState<'Home' | 'Explore' | 'Bookings'>('Home');
-  const [weatherText, setWeatherText] = useState(weatherStates[0]);
+  const [weatherIndex, setWeatherIndex] = useState(0);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
   const [selectedSlot, setSelectedSlot] = useState<string>('');
@@ -136,10 +136,7 @@ export default function App() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setWeatherText((current) => {
-        const currentIndex = weatherStates.indexOf(current);
-        return weatherStates[(currentIndex + 1) % weatherStates.length];
-      });
+      setWeatherIndex((current) => (current + 1) % weatherStates.length);
     }, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -245,7 +242,7 @@ export default function App() {
     <SafeAreaView style={styles.appContainer}>
       <View style={styles.weatherBar}>
         <Text style={styles.weatherTitle}>{tab === 'Explore' ? 'Weather in Goa' : 'Live Rain Status'}</Text>
-        <Text style={styles.weatherText}>{weatherText}</Text>
+        <Text style={styles.weatherText}>{weatherStates[weatherIndex]}</Text>
         <Text style={styles.weatherMeta}>Humidity 91% · 26°C · Auto refresh every 15 min</Text>
       </View>
 
