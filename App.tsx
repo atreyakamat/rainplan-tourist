@@ -41,6 +41,8 @@ type Booking = {
   countdown: string;
 };
 
+type Stage = 'splash' | 'location' | 'signup' | 'time' | 'home';
+
 const categories: Category[] = [
   'All',
   'Food & Drink',
@@ -115,7 +117,7 @@ const weatherStates = [
 ];
 
 export default function App() {
-  const [stage, setStage] = useState<'splash' | 'location' | 'signup' | 'time' | 'home'>('splash');
+  const [stage, setStage] = useState<Stage>('splash');
   const [selectedDuration, setSelectedDuration] = useState<Duration>('2 hours');
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
   const [priceFilter, setPriceFilter] = useState<'Any' | '₹1000' | '₹1500'>('Any');
@@ -151,7 +153,7 @@ export default function App() {
       .sort((a, b) => a.distanceKm - b.distanceKm || b.rating - a.rating);
   }, [priceFilter, selectedCategory, selectedDuration, tab]);
 
-  const resetBooking = () => {
+  const resetBookingFields = () => {
     setBookingStep(1);
     setSelectedSlot('');
     setPeopleCount(1);
@@ -176,7 +178,7 @@ export default function App() {
     ]);
 
     setSelectedActivity(null);
-    resetBooking();
+    resetBookingFields();
     setTab('Bookings');
   };
 
@@ -371,7 +373,13 @@ export default function App() {
           )}
 
           <View style={styles.detailButtons}>
-            <Pressable style={styles.secondaryButton} onPress={() => { setSelectedActivity(null); resetBooking(); }}>
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => {
+                setSelectedActivity(null);
+                resetBookingFields();
+              }}
+            >
               <Text style={styles.secondaryButtonText}>Close</Text>
             </Pressable>
             {bookingStep < 3 ? (
