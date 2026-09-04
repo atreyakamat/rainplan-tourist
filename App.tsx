@@ -1,498 +1,841 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Pressable,
   SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
   View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+  Animated,
+  Easing,
+  useWindowDimensions,
 } from 'react-native';
-
-type Duration = '1 hour' | '2 hours' | 'Half day' | 'Full day';
-type Category =
-  | 'All'
-  | 'Food & Drink'
-  | 'Art & Craft'
-  | 'Culture'
-  | 'Wellness'
-  | 'Music'
-  | 'Indoor Games';
-
-type Activity = {
-  id: string;
-  name: string;
-  host: string;
-  category: Exclude<Category, 'All'>;
-  distanceKm: number;
-  duration: Duration;
-  price: number;
-  rating: number;
-  slots: string[];
-  description: string;
-};
-
-type Booking = {
-  id: string;
-  activityName: string;
-  slot: string;
-  people: number;
-  totalPrice: number;
-  countdown: string;
-};
-
-type Stage = 'splash' | 'location' | 'signup' | 'time' | 'home';
-
-const categories: Category[] = [
-  'All',
-  'Food & Drink',
-  'Art & Craft',
-  'Culture',
-  'Wellness',
-  'Music',
-  'Indoor Games',
-];
-
-const durationOptions: Duration[] = ['1 hour', '2 hours', 'Half day', 'Full day'];
-const weatherRefreshMinutes = 15;
-const weatherRefreshMs = weatherRefreshMinutes * 60 * 1000;
-
-const priceFilters = [
-  { label: 'Any', value: Infinity },
-  { label: '₹1000', value: 1000 },
-  { label: '₹1500', value: 1500 },
-] as const;
-
-const activities: Activity[] = [
-  {
-    id: '1',
-    name: 'Goan Home Cooking Experience',
-    host: 'Maria Dsouza',
-    category: 'Food & Drink',
-    distanceKm: 1.2,
-    duration: '2 hours',
-    price: 1200,
-    rating: 4.8,
-    slots: ['12:00 PM', '3:00 PM', '6:00 PM'],
-    description:
-      'Cook a classic Goan curry and poi bread with a local home chef in a cozy indoor kitchen.',
-  },
-  {
-    id: '2',
-    name: 'Monsoon Pottery Workshop',
-    host: 'Clay Cove Studio',
-    category: 'Art & Craft',
-    distanceKm: 2.1,
-    duration: '1 hour',
-    price: 900,
-    rating: 4.7,
-    slots: ['11:00 AM', '1:30 PM', '4:00 PM'],
-    description:
-      'Hands-on beginner pottery session with wheel basics, glazing demo, and take-home keepsake.',
-  },
-  {
-    id: '3',
-    name: 'Indoor Feni & Culture Tasting',
-    host: 'Heritage House Goa',
-    category: 'Culture',
-    distanceKm: 3.4,
-    duration: '1 hour',
-    price: 1500,
-    rating: 4.9,
-    slots: ['2:00 PM', '5:00 PM'],
-    description:
-      'Taste local feni styles and learn stories behind Goa traditions in a restored heritage villa.',
-  },
-  {
-    id: '4',
-    name: 'Rainy Day Board Game Lounge',
-    host: 'Panjim Play Cafe',
-    category: 'Indoor Games',
-    distanceKm: 0.9,
-    duration: 'Half day',
-    price: 600,
-    rating: 4.6,
-    slots: ['10:00 AM', '2:00 PM'],
-    description:
-      'Unlimited board games, snacks, and host-led recommendations for groups and couples.',
-  },
-];
-
-const weatherStates = [
-  'Light Rain · Rain expected for next 3 hours',
-  'Heavy Rain · Storm pockets expected in 45 min',
-  'Light Rain · Clearing up in 45 min',
-];
+import { openWhatsApp } from './src/utils/whatsapp';
 
 export default function App() {
-  const [stage, setStage] = useState<Stage>('splash');
-  const [selectedDuration, setSelectedDuration] = useState<Duration>('2 hours');
-  const [selectedCategory, setSelectedCategory] = useState<Category>('All');
-  const [priceFilter, setPriceFilter] = useState<(typeof priceFilters)[number]['label']>('Any');
-  const [tab, setTab] = useState<'Home' | 'Explore' | 'Bookings'>('Home');
-  const [weatherIndex, setWeatherIndex] = useState(0);
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-  const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
-  const [selectedSlot, setSelectedSlot] = useState<string>('');
-  const [peopleCount, setPeopleCount] = useState(1);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const { width, height } = useWindowDimensions();
+  const isLargeScreen = width >= 880;
+  const isTablet = width >= 640 && width < 880;
+
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [role, setRole] = useState<'explorer' | 'host'>('explorer');
+  const [submitted, setSubmitted] = useState(false);
+
+  // Smooth continuous ambient flowing background animations
+  const orb1Anim = useRef(new Animated.Value(0)).current;
+  const orb2Anim = useRef(new Animated.Value(0)).current;
+  const orb3Anim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const timeout = setTimeout(() => setStage('location'), 1500);
-    return () => clearTimeout(timeout);
-  }, []);
+    // Flowing loop for Orb 1 (Olive mist)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(orb1Anim, {
+          toValue: 1,
+          duration: 14000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(orb1Anim, {
+          toValue: 0,
+          duration: 14000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setWeatherIndex((current) => (current + 1) % weatherStates.length);
-    }, weatherRefreshMs);
-    return () => clearInterval(interval);
-  }, []);
+    // Flowing loop for Orb 2 (Warm Golden Sand mist)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(orb2Anim, {
+          toValue: 1,
+          duration: 18000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(orb2Anim, {
+          toValue: 0,
+          duration: 18000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
 
-  const filteredActivities = useMemo(() => {
-    const selectedPriceFilter = priceFilters.find((filter) => filter.label === priceFilter);
-    const maxPrice = selectedPriceFilter?.value ?? Infinity;
-    return activities
-      .filter((item) => tab === 'Explore' || item.duration === selectedDuration)
-      .filter((item) => selectedCategory === 'All' || item.category === selectedCategory)
-      .filter((item) => item.price <= maxPrice)
-      .slice()
-      .sort((a, b) => a.distanceKm - b.distanceKm || b.rating - a.rating);
-  }, [priceFilter, selectedCategory, selectedDuration, tab]);
+    // Flowing loop for Orb 3 (Sage mist)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(orb3Anim, {
+          toValue: 1,
+          duration: 22000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(orb3Anim, {
+          toValue: 0,
+          duration: 22000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
 
-  const resetBookingFields = () => {
-    setBookingStep(1);
-    setSelectedSlot('');
-    setPeopleCount(1);
-  };
+    // Breathing pulse for Coming Soon badge
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.25,
+          duration: 2200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [orb1Anim, orb2Anim, orb3Anim, pulseAnim]);
 
-  const confirmBooking = () => {
-    if (!selectedActivity || !selectedSlot) {
+  // Orb 1 Translations
+  const orb1TranslateX = orb1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-80, 120],
+  });
+  const orb1TranslateY = orb1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-50, 90],
+  });
+  const orb1Scale = orb1Anim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 1.25, 0.95],
+  });
+
+  // Orb 2 Translations
+  const orb2TranslateX = orb2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [80, -120],
+  });
+  const orb2TranslateY = orb2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [60, -90],
+  });
+  const orb2Scale = orb2Anim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1.1, 0.9, 1.25],
+  });
+
+  // Orb 3 Translations
+  const orb3TranslateX = orb3Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-60, 60],
+  });
+  const orb3TranslateY = orb3Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [50, -70],
+  });
+
+  const handleJoinWhatsApp = () => {
+    if (!name.trim()) {
+      alert('Please enter your name.');
       return;
     }
 
-    const totalPrice = Math.round(selectedActivity.price * peopleCount);
-    setBookings((current) => [
-      {
-        id: `${Date.now()}`,
-        activityName: selectedActivity.name,
-        slot: selectedSlot,
-        people: peopleCount,
-        totalPrice,
-        countdown: 'Starts in 2h 15m',
-      },
-      ...current,
-    ]);
+    setSubmitted(true);
 
-    setSelectedActivity(null);
-    resetBookingFields();
-    setTab('Bookings');
+    if (role === 'explorer') {
+      openWhatsApp({
+        type: 'signup_explorer',
+        name: name.trim(),
+        destination: `Goa Edition (WhatsApp: ${phone || 'Not provided'})`,
+      });
+    } else {
+      openWhatsApp({
+        type: 'signup_host',
+        name: name.trim(),
+        hostSkill: 'Local Host / Traditional Craft',
+        destination: `Goa Edition (WhatsApp: ${phone || 'Not provided'})`,
+      });
+    }
   };
 
-  if (stage === 'splash') {
-    return (
-      <SafeAreaView style={styles.splashContainer}>
-        <Text style={styles.logo}>RainPlan</Text>
-        <Text style={styles.subtitle}>Your monsoon travel companion in Goa</Text>
-        <StatusBar style="light" />
-      </SafeAreaView>
-    );
-  }
+  const handleHostDirectWhatsApp = () => {
+    openWhatsApp({
+      type: 'signup_host',
+      name: 'Local Host',
+      hostSkill: 'Local Cooking / Guiding / Secret Spot',
+      destination: 'Goa',
+    });
+  };
 
-  if (stage === 'location') {
-    return (
-      <SafeAreaView style={styles.centeredScreen}>
-        <Text style={styles.screenTitle}>Enable Location</Text>
-        <Text style={styles.screenText}>RainPlan needs your location to show nearby indoor plans instantly.</Text>
-        <Pressable style={styles.primaryButton} onPress={() => setStage('signup')}>
-          <Text style={styles.primaryButtonText}>Allow Location</Text>
-        </Pressable>
-      </SafeAreaView>
-    );
-  }
-
-  if (stage === 'signup') {
-    return (
-      <SafeAreaView style={styles.centeredScreen}>
-        <Text style={styles.screenTitle}>Sign in to continue</Text>
-        <Pressable style={styles.primaryButton} onPress={() => setStage('time')}>
-          <Text style={styles.primaryButtonText}>Continue with Google</Text>
-        </Pressable>
-        <Pressable style={styles.secondaryButton} onPress={() => setStage('time')}>
-          <Text style={styles.secondaryButtonText}>Continue with Phone Number</Text>
-        </Pressable>
-      </SafeAreaView>
-    );
-  }
-
-  if (stage === 'time') {
-    return (
-      <SafeAreaView style={styles.centeredScreen}>
-        <Text style={styles.screenTitle}>How long do you have?</Text>
-        {durationOptions.map((option) => (
-          <Pressable
-            key={option}
-            style={[styles.optionButton, selectedDuration === option && styles.optionButtonActive]}
-            onPress={() => setSelectedDuration(option)}
-          >
-            <Text style={[styles.optionButtonText, selectedDuration === option && styles.optionButtonTextActive]}>
-              {option}
-            </Text>
-          </Pressable>
-        ))}
-        <Pressable style={styles.primaryButton} onPress={() => setStage('home')}>
-          <Text style={styles.primaryButtonText}>Show my rain plans</Text>
-        </Pressable>
-      </SafeAreaView>
-    );
-  }
+  const handleDirectConcierge = () => {
+    openWhatsApp({
+      type: 'general',
+      customMessage: 'Namaste 78 E Loka. I would like to join the early private guestlist.',
+    });
+  };
 
   return (
-    <SafeAreaView style={styles.appContainer}>
-      <View style={styles.weatherBar}>
-        <Text style={styles.weatherTitle}>{tab === 'Explore' ? 'Weather in Goa' : 'Live Rain Status'}</Text>
-        <Text style={styles.weatherText}>{weatherStates[weatherIndex]}</Text>
-        <Text style={styles.weatherMeta}>
-          Humidity 91% · 26°C · Auto refresh every {weatherRefreshMinutes} min
-        </Text>
-      </View>
-
-      <View style={styles.tabRow}>
-        {(['Home', 'Explore', 'Bookings'] as const).map((tabOption) => (
-          <Pressable
-            key={tabOption}
-            style={[styles.tabButton, tab === tabOption && styles.tabButtonActive]}
-            onPress={() => setTab(tabOption)}
-          >
-            <Text style={[styles.tabLabel, tab === tabOption && styles.tabLabelActive]}>{tabOption}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {tab !== 'Bookings' ? (
-        <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-            {categories.map((category) => (
-              <Pressable
-                key={category}
-                style={[styles.chip, selectedCategory === category && styles.chipActive]}
-                onPress={() => setSelectedCategory(category)}
-              >
-                <Text style={[styles.chipText, selectedCategory === category && styles.chipTextActive]}>
-                  {category}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          <View style={styles.filterRow}>
-            {priceFilters.map((priceFilterOption) => (
-              <Pressable
-                key={priceFilterOption.label}
-                style={[styles.filterButton, priceFilter === priceFilterOption.label && styles.filterButtonActive]}
-                onPress={() => setPriceFilter(priceFilterOption.label)}
-              >
-                <Text style={styles.filterText}>Price {priceFilterOption.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <ScrollView contentContainerStyle={styles.cardList}>
-            {filteredActivities.map((activity) => (
-              <Pressable key={activity.id} style={styles.card} onPress={() => setSelectedActivity(activity)}>
-                <Text style={styles.cardTitle}>{activity.name}</Text>
-                <Text style={styles.cardMeta}>
-                  {activity.category} · {activity.distanceKm} km · {activity.duration}
-                </Text>
-                <Text style={styles.cardMeta}>₹{activity.price} · ⭐ {activity.rating} · {activity.slots.length} slots today</Text>
-              </Pressable>
-            ))}
-            {filteredActivities.length === 0 && (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>No matches yet</Text>
-                <Text style={styles.emptyText}>Try switching category or price to see more indoor plans nearby.</Text>
-              </View>
-            )}
-          </ScrollView>
-        </>
-      ) : (
-        <ScrollView contentContainerStyle={styles.cardList}>
-          {bookings.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>No bookings yet</Text>
-              <Text style={styles.emptyText}>Book one experience in 3 taps and it will appear here.</Text>
-            </View>
-          ) : (
-            bookings.map((booking) => (
-              <View style={styles.card} key={booking.id}>
-                <Text style={styles.cardTitle}>{booking.activityName}</Text>
-                <Text style={styles.cardMeta}>{booking.slot} · {booking.people} people</Text>
-                <Text style={styles.cardMeta}>₹{booking.totalPrice} · {booking.countdown}</Text>
-              </View>
-            ))
-          )}
-        </ScrollView>
-      )}
-
-      {selectedActivity && (
-        <View style={styles.detailSheet}>
-          <Text style={styles.detailTitle}>{selectedActivity.name}</Text>
-          <Text style={styles.detailMeta}>Hosted by {selectedActivity.host} · ⭐ {selectedActivity.rating}</Text>
-          <Text style={styles.detailMeta}>{selectedActivity.description}</Text>
-
-          {bookingStep === 1 && (
-            <>
-              <Text style={styles.stepTitle}>Step 1 · Select a slot</Text>
-              <View style={styles.slotRow}>
-                {selectedActivity.slots.map((slot) => (
-                  <Pressable
-                    key={slot}
-                    style={[styles.slotButton, selectedSlot === slot && styles.slotButtonActive]}
-                    onPress={() => setSelectedSlot(slot)}
-                  >
-                    <Text style={styles.slotButtonText}>{slot}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </>
-          )}
-
-          {bookingStep === 2 && (
-            <>
-              <Text style={styles.stepTitle}>Step 2 · Number of people</Text>
-              <View style={styles.stepperRow}>
-                <Pressable style={styles.stepperButton} onPress={() => setPeopleCount((count) => Math.max(1, count - 1))}>
-                  <Text style={styles.stepperText}>-</Text>
-                </Pressable>
-                <Text style={styles.peopleCount}>{peopleCount}</Text>
-                <Pressable style={styles.stepperButton} onPress={() => setPeopleCount((count) => Math.min(10, count + 1))}>
-                  <Text style={styles.stepperText}>+</Text>
-                </Pressable>
-              </View>
-            </>
-          )}
-
-          {bookingStep === 3 && (
-            <>
-              <Text style={styles.stepTitle}>Step 3 · Confirm</Text>
-              <Text style={styles.detailMeta}>Slot: {selectedSlot}</Text>
-              <Text style={styles.detailMeta}>People: {peopleCount}</Text>
-              <Text style={styles.detailMeta}>Total: ₹{selectedActivity.price * peopleCount}</Text>
-            </>
-          )}
-
-          <View style={styles.detailButtons}>
-            <Pressable
-              style={styles.secondaryButton}
-              onPress={() => {
-                setSelectedActivity(null);
-                resetBookingFields();
-              }}
-            >
-              <Text style={styles.secondaryButtonText}>Close</Text>
-            </Pressable>
-            {bookingStep < 3 ? (
-              <Pressable
-                style={[styles.primaryButton, bookingStep === 1 && !selectedSlot && styles.primaryButtonDisabled]}
-                onPress={() => setBookingStep((step) => (step + 1) as 1 | 2 | 3)}
-                disabled={bookingStep === 1 && !selectedSlot}
-                accessibilityState={{ disabled: bookingStep === 1 && !selectedSlot }}
-              >
-                <Text style={styles.primaryButtonText}>Continue</Text>
-              </Pressable>
-            ) : (
-              <Pressable style={styles.primaryButton} onPress={confirmBooking}>
-                <Text style={styles.primaryButtonText}>Confirm Booking</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-      )}
-
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
+
+      {/* FULL-WIDTH CONTINUOUS FLOWING AMBIENT AURORA CANVAS */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {/* Soft Olive Aurora Orb */}
+        <Animated.View
+          style={[
+            styles.flowingOrb,
+            styles.orbOlive,
+            {
+              width: width * 0.55,
+              height: width * 0.55,
+              minWidth: 380,
+              minHeight: 380,
+              top: -60,
+              left: -40,
+              transform: [
+                { translateX: orb1TranslateX },
+                { translateY: orb1TranslateY },
+                { scale: orb1Scale },
+              ],
+            },
+          ]}
+        />
+
+        {/* Warm Golden Sand Mist Orb */}
+        <Animated.View
+          style={[
+            styles.flowingOrb,
+            styles.orbSand,
+            {
+              width: width * 0.6,
+              height: width * 0.6,
+              minWidth: 400,
+              minHeight: 400,
+              bottom: -100,
+              right: -80,
+              transform: [
+                { translateX: orb2TranslateX },
+                { translateY: orb2TranslateY },
+                { scale: orb2Scale },
+              ],
+            },
+          ]}
+        />
+
+        {/* Muted Sage Floating Core */}
+        <Animated.View
+          style={[
+            styles.flowingOrb,
+            styles.orbSage,
+            {
+              width: width * 0.45,
+              height: width * 0.45,
+              minWidth: 320,
+              minHeight: 320,
+              top: height * 0.3,
+              alignSelf: 'center',
+              transform: [
+                { translateX: orb3TranslateX },
+                { translateY: orb3TranslateY },
+              ],
+            },
+          ]}
+        />
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardView}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContainer,
+            {
+              paddingHorizontal: isLargeScreen ? 64 : isTablet ? 36 : 20,
+              paddingVertical: isLargeScreen ? 40 : 24,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* FULL WIDTH TOP NAVIGATION */}
+          <View style={styles.topNav}>
+            <View style={styles.brandRow}>
+              <Text style={styles.brandSymbol}>78°E</Text>
+              <View style={styles.brandTextGroup}>
+                <Text style={styles.brandText}>LOKA</Text>
+                <Text style={styles.brandSub}>ISSUE 01</Text>
+              </View>
+            </View>
+
+            <Pressable
+              accessibilityLabel="Direct WhatsApp Concierge"
+              style={styles.navWaBtn}
+              onPress={handleDirectConcierge}
+            >
+              <Text style={styles.navWaBtnText}>WhatsApp Concierge →</Text>
+            </Pressable>
+          </View>
+
+          {/* FLUID FULL-WIDTH / RESPONSIVE CENTER STAGE */}
+          <View
+            style={[
+              styles.centerStage,
+              isLargeScreen ? styles.centerStageDesktop : styles.centerStageMobile,
+            ]}
+          >
+            {/* LEFT / TOP COLUMN: Editorial Manifesto */}
+            <View
+              style={[
+                styles.leftManifestoCol,
+                isLargeScreen ? styles.leftColDesktop : styles.leftColMobile,
+              ]}
+            >
+              {/* Pulsing Status Pill */}
+              <View style={styles.statusPill}>
+                <Animated.View
+                  style={[
+                    styles.pulsingDot,
+                    {
+                      transform: [{ scale: pulseAnim }],
+                    },
+                  ]}
+                />
+                <Text style={styles.statusText}>COMING SOON</Text>
+              </View>
+
+              {/* Bold Editorial Headline */}
+              <Text
+                style={[
+                  styles.mainHeadline,
+                  {
+                    fontSize: isLargeScreen ? 64 : isTablet ? 48 : 36,
+                    lineHeight: isLargeScreen ? 72 : isTablet ? 56 : 44,
+                    textAlign: isLargeScreen ? 'left' : 'center',
+                  },
+                ]}
+              >
+                Real India.{'\n'}
+                <Text style={styles.italicHeadline}>Not Tourist India.</Text>
+              </Text>
+
+              {/* Evocative Subtitle */}
+              <Text
+                style={[
+                  styles.subheadline,
+                  {
+                    textAlign: isLargeScreen ? 'left' : 'center',
+                    maxWidth: isLargeScreen ? 520 : 480,
+                  },
+                ]}
+              >
+                A quiet sanctuary connecting conscious travelers directly with native home cooks, artisanal fishermen, and secret lands.
+              </Text>
+
+              {/* Ambient Editorial Badges on Desktop */}
+              {isLargeScreen && (
+                <View style={styles.manifestoFootnotes}>
+                  <View style={styles.footnoteItem}>
+                    <Text style={styles.footnoteLabel}>TASTE</Text>
+                    <Text style={styles.footnoteVal}>Ancestral home kitchens & toddy shacks</Text>
+                  </View>
+                  <View style={styles.footnoteDivider} />
+                  <View style={styles.footnoteItem}>
+                    <Text style={styles.footnoteLabel}>LIVE</Text>
+                    <Text style={styles.footnoteVal}>Craft workshops & nature guided walks</Text>
+                  </View>
+                  <View style={styles.footnoteDivider} />
+                  <View style={styles.footnoteItem}>
+                    <Text style={styles.footnoteLabel}>DISCOVER</Text>
+                    <Text style={styles.footnoteVal}>Secret spots submitted only by native keepers</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* RIGHT / BOTTOM COLUMN: Glassmorphic WhatsApp Invitation Form */}
+            <View
+              style={[
+                styles.rightFormCol,
+                isLargeScreen ? styles.rightColDesktop : styles.rightColMobile,
+              ]}
+            >
+              {!submitted ? (
+                <View style={styles.formCard}>
+                  {/* Mode Selector */}
+                  <View style={styles.roleRow}>
+                    <Pressable
+                      accessibilityLabel="Guest Access"
+                      style={[styles.roleTab, role === 'explorer' && styles.roleTabActive]}
+                      onPress={() => setRole('explorer')}
+                    >
+                      <Text
+                        style={[
+                          styles.roleTabText,
+                          role === 'explorer' && styles.roleTabTextActive,
+                        ]}
+                      >
+                        Guest Access
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      accessibilityLabel="Host Registration"
+                      style={[styles.roleTab, role === 'host' && styles.roleTabActive]}
+                      onPress={() => setRole('host')}
+                    >
+                      <Text
+                        style={[
+                          styles.roleTabText,
+                          role === 'host' && styles.roleTabTextActive,
+                        ]}
+                      >
+                        Host Register
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {/* Input Fields */}
+                  <View style={styles.inputsStack}>
+                    <TextInput
+                      style={styles.minimalInput}
+                      placeholder="Full Name"
+                      placeholderTextColor="#9EA697"
+                      value={name}
+                      onChangeText={setName}
+                    />
+
+                    <TextInput
+                      style={styles.minimalInput}
+                      placeholder="WhatsApp Number (+91...)"
+                      placeholderTextColor="#9EA697"
+                      keyboardType="phone-pad"
+                      value={phone}
+                      onChangeText={setPhone}
+                    />
+                  </View>
+
+                  {/* Submit Action */}
+                  <Pressable
+                    accessibilityLabel="Request access on WhatsApp"
+                    style={styles.primaryWaBtn}
+                    onPress={handleJoinWhatsApp}
+                  >
+                    <Text style={styles.primaryWaBtnText}>
+                      {role === 'explorer'
+                        ? 'Request Access on WhatsApp →'
+                        : 'Register as Host on WhatsApp →'}
+                    </Text>
+                  </Pressable>
+
+                  <Text style={styles.privacyNote}>
+                    * Opens WhatsApp with your private invitation code.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.successCard}>
+                  <Text style={styles.successTitle}>
+                    Connecting...{' '}
+                    <Text style={styles.italicHeadline}>Namaste.</Text>
+                  </Text>
+                  <Text style={styles.successSub}>
+                    Thank you, {name}. Your private access request has been pre-filled.
+                  </Text>
+
+                  <Pressable
+                    accessibilityLabel="Open WhatsApp again"
+                    style={styles.reopenBtn}
+                    onPress={handleJoinWhatsApp}
+                  >
+                    <Text style={styles.reopenBtnText}>Open WhatsApp Chat →</Text>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityLabel="Reset form"
+                    style={styles.resetBtn}
+                    onPress={() => setSubmitted(false)}
+                  >
+                    <Text style={styles.resetBtnText}>Edit Details</Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {/* Host Quick Link */}
+              {role === 'explorer' && !submitted && (
+                <Pressable
+                  accessibilityLabel="Are you a local host?"
+                  style={styles.hostLinkRow}
+                  onPress={handleHostDirectWhatsApp}
+                >
+                  <Text style={styles.hostLinkText}>
+                    Are you a native home cook, fisherman, or guide in Goa?{' '}
+                    <Text style={styles.hostLinkHighlight}>Chat on WhatsApp →</Text>
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+
+          {/* FULL-WIDTH FOOTER */}
+          <View style={styles.bottomFooter}>
+            <Text style={styles.footerCopyright}>
+              © {new Date().getFullYear()} 78 E LOKA. All Rights Reserved.
+            </Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  appContainer: { flex: 1, backgroundColor: '#F5F7FA' },
-  splashContainer: { flex: 1, backgroundColor: '#1A56A0', alignItems: 'center', justifyContent: 'center' },
-  logo: { fontSize: 32, fontWeight: '700', color: '#fff' },
-  subtitle: { marginTop: 12, color: '#E3EEFB', fontSize: 14 },
-  centeredScreen: { flex: 1, backgroundColor: '#F5F7FA', justifyContent: 'center', padding: 24, gap: 12 },
-  screenTitle: { fontSize: 24, fontWeight: '700', color: '#1A56A0', marginBottom: 6 },
-  screenText: { fontSize: 14, color: '#6B7E8F', lineHeight: 22 },
-  primaryButton: {
-    backgroundColor: '#1A56A0',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    marginTop: 8,
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F7F4EC', // Linen sand
   },
-  primaryButtonText: { color: '#fff', fontWeight: '600' },
-  primaryButtonDisabled: { opacity: 0.5 },
-  secondaryButton: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#BBD0EA',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  secondaryButtonText: { color: '#1A56A0', fontWeight: '600' },
-  optionButton: { borderRadius: 12, borderWidth: 1, borderColor: '#BBD0EA', padding: 14, backgroundColor: '#fff' },
-  optionButtonActive: { borderColor: '#1A56A0', backgroundColor: '#E7F0FC' },
-  optionButtonText: { color: '#334A5E', textAlign: 'center', fontWeight: '600' },
-  optionButtonTextActive: { color: '#1A56A0' },
-  weatherBar: { backgroundColor: '#1A56A0', padding: 16, borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
-  weatherTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  weatherText: { color: '#fff', marginTop: 6 },
-  weatherMeta: { color: '#D9E7FA', marginTop: 4, fontSize: 12 },
-  tabRow: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 12, gap: 8 },
-  tabButton: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#E3EAF2', alignItems: 'center' },
-  tabButtonActive: { backgroundColor: '#1A56A0' },
-  tabLabel: { color: '#41586E', fontWeight: '600' },
-  tabLabelActive: { color: '#fff' },
-  chipsRow: { paddingHorizontal: 12, marginTop: 12, maxHeight: 44 },
-  chip: { backgroundColor: '#E3EAF2', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, marginHorizontal: 4 },
-  chipActive: { backgroundColor: '#1A56A0' },
-  chipText: { color: '#41586E', fontSize: 12 },
-  chipTextActive: { color: '#fff' },
-  filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginTop: 8 },
-  filterButton: { backgroundColor: '#fff', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: '#D5E1ED' },
-  filterButtonActive: { borderColor: '#1A56A0', backgroundColor: '#E7F0FC' },
-  filterText: { color: '#334A5E', fontSize: 12, fontWeight: '500' },
-  cardList: { padding: 16, gap: 12, paddingBottom: 220 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 2 }, shadowRadius: 8, elevation: 2 },
-  cardTitle: { color: '#1D3145', fontSize: 16, fontWeight: '700' },
-  cardMeta: { color: '#607689', marginTop: 6, fontSize: 13 },
-  emptyState: { backgroundColor: '#fff', borderRadius: 12, padding: 16 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1D3145' },
-  emptyText: { fontSize: 13, color: '#607689', marginTop: 6 },
-  detailSheet: {
+  flowingOrb: {
     position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 12,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#DBE5F0',
+    borderRadius: 9999,
   },
-  detailTitle: { fontSize: 16, fontWeight: '700', color: '#1D3145' },
-  detailMeta: { marginTop: 6, color: '#5B7286', fontSize: 13, lineHeight: 19 },
-  stepTitle: { marginTop: 12, color: '#1A56A0', fontWeight: '700' },
-  slotRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  slotButton: { borderWidth: 1, borderColor: '#C9D8E7', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
-  slotButtonActive: { borderColor: '#1A56A0', backgroundColor: '#E7F0FC' },
-  slotButtonText: { color: '#334A5E' },
-  stepperRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepperButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#1A56A0', alignItems: 'center', justifyContent: 'center' },
-  stepperText: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  peopleCount: { minWidth: 32, textAlign: 'center', fontSize: 18, fontWeight: '700', color: '#1D3145' },
-  detailButtons: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  orbOlive: {
+    backgroundColor: '#3E5035',
+    opacity: 0.14,
+  },
+  orbSand: {
+    backgroundColor: '#C8A870',
+    opacity: 0.16,
+  },
+  orbSage: {
+    backgroundColor: '#8FA382',
+    opacity: 0.12,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  topNav: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 32,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  brandSymbol: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#2E3D26', // Deep artisan olive
+    letterSpacing: 1.5,
+  },
+  brandTextGroup: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  brandText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1A2119',
+    letterSpacing: 3,
+  },
+  brandSub: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#768270',
+    letterSpacing: 1.2,
+  },
+  navWaBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D8D1C2',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+  },
+  navWaBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2E3D26',
+    letterSpacing: 0.3,
+  },
+  centerStage: {
+    width: '100%',
+    marginVertical: 'auto',
+    paddingVertical: 20,
+  },
+  centerStageDesktop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 56,
+  },
+  centerStageMobile: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 32,
+  },
+  leftManifestoCol: {
+    justifyContent: 'center',
+  },
+  leftColDesktop: {
+    flex: 1.2,
+    alignItems: 'flex-start',
+  },
+  leftColMobile: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  rightFormCol: {
+    justifyContent: 'center',
+  },
+  rightColDesktop: {
+    flex: 1,
+    maxWidth: 440,
+    width: '100%',
+    alignItems: 'stretch',
+  },
+  rightColMobile: {
+    width: '100%',
+    maxWidth: 440,
+    alignItems: 'center',
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderWidth: 1,
+    borderColor: '#E2DBD0',
+    marginBottom: 24,
+    shadowColor: '#2E3D26',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  pulsingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#3E5035',
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#3E5035',
+    letterSpacing: 2,
+  },
+  mainHeadline: {
+    fontWeight: '800',
+    color: '#151C14',
+    letterSpacing: -1.2,
+    marginBottom: 16,
+  },
+  italicHeadline: {
+    fontStyle: 'italic',
+    fontWeight: '400',
+    color: '#384B30',
+  },
+  subheadline: {
+    fontSize: 16,
+    lineHeight: 26,
+    color: '#556150',
+    marginBottom: 28,
+    fontWeight: '400',
+  },
+  manifestoFootnotes: {
+    borderTopWidth: 1,
+    borderTopColor: '#E2DBD0',
+    paddingTop: 18,
+    width: '100%',
+    gap: 8,
+  },
+  footnoteItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  footnoteLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#3E5035',
+    letterSpacing: 1.2,
+    width: 70,
+  },
+  footnoteVal: {
+    fontSize: 12,
+    color: '#6E7A68',
+    fontStyle: 'italic',
+  },
+  footnoteDivider: {
+    height: 1,
+    backgroundColor: 'rgba(226, 219, 208, 0.5)',
+  },
+  formCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 22,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#E5DED2',
+    shadowColor: '#2E3D26',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.07,
+    shadowRadius: 24,
+    elevation: 4,
+    marginBottom: 16,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  roleTab: {
+    flex: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: '#F4F0E8',
+    borderWidth: 1,
+    borderColor: '#E4DDD2',
+    alignItems: 'center',
+  },
+  roleTabActive: {
+    backgroundColor: '#2E3D26',
+    borderColor: '#2E3D26',
+  },
+  roleTabText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#5C6956',
+  },
+  roleTabTextActive: {
+    color: '#FBF9F5',
+  },
+  inputsStack: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  minimalInput: {
+    backgroundColor: '#FBF9F5',
+    borderWidth: 1,
+    borderColor: '#DDD6C9',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#151C14',
+  },
+  primaryWaBtn: {
+    backgroundColor: '#2E3D26',
+    paddingVertical: 14,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#2E3D26',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  primaryWaBtnText: {
+    color: '#FBF9F5',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  privacyNote: {
+    fontSize: 11,
+    color: '#838F7D',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  successCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderRadius: 22,
+    padding: 30,
+    borderWidth: 1,
+    borderColor: '#E5DED2',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#151C14',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  successSub: {
+    fontSize: 13,
+    color: '#556150',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 22,
+  },
+  reopenBtn: {
+    backgroundColor: '#2E3D26',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 999,
+    marginBottom: 10,
+  },
+  reopenBtnText: {
+    color: '#FBF9F5',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  resetBtn: {
+    paddingVertical: 6,
+  },
+  resetBtnText: {
+    fontSize: 12,
+    color: '#768270',
+    fontWeight: '600',
+  },
+  hostLinkRow: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  hostLinkText: {
+    fontSize: 12,
+    color: '#63705E',
+    textAlign: 'center',
+  },
+  hostLinkHighlight: {
+    color: '#2E3D26',
+    fontWeight: '700',
+  },
+  bottomFooter: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 24,
+  },
+  footerCopyright: {
+    fontSize: 11,
+    color: '#94A08E',
+    letterSpacing: 0.5,
+  },
 });
